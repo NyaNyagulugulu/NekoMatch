@@ -7,7 +7,7 @@ website: https://cnmsb.xin/
 
 commands:
   match:
-    description: 开始匹配指定模式
+    description: 打开对应模式的匹配GUI
     usage: /match <模式名称>
     aliases: [m]
   matchreload:

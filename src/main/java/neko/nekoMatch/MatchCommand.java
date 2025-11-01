@@ -27,9 +27,9 @@ public class MatchCommand implements CommandExecutor {
                 // 如果没有参数，不执行任何操作
                 return true;
             } else {
-                // 如果有参数，直接开始匹配指定模式
+                // 如果有参数，打开对应模式的匹配GUI
                 String mode = args[0].toLowerCase();
-                startMatching(player, mode);
+                MatchGUI.openGUI(player, plugin, mode);
             }
         } else if (label.equalsIgnoreCase("matchreload")) {
             // 重载配置文件
@@ -39,12 +39,5 @@ public class MatchCommand implements CommandExecutor {
         }
         
         return true;
-    }
-    
-    private void startMatching(Player player, String mode) {
-        player.sendMessage("§b正在为 " + mode + " 模式寻找合适的服务器...");
-        
-        // 调用服务器管理器来查找合适的服务器
-        plugin.getServerManager().findAndMatchServer(player, mode);
     }
 }

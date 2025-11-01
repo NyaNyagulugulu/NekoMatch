@@ -8,24 +8,25 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Arrays;
-import java.util.Set;
+import java.util.List;
 
 public class MatchGUI {
-    private static final String GUI_TITLE = "§b§l匹配模式选择";
+    private static final String MODE_GUI_TITLE_PREFIX = "§b§l";
 
-    public static void openGUI(Player player, NekoMatch plugin) {
-        openGUI(player, plugin, null);
-    }
-
-    public static void openGUI(Player player, NekoMatch plugin, String preselectedMode) {
-        // 获取所有模式（排除MOTD模式配置）
-        Set<String> modes = plugin.getConfig().getKeys(false);
-        modes.remove("waiting_motd_pattern");
+    public static void openGUI(Player player, NekoMatch plugin, String mode) {
+        // 检查模式是否存在
+        if (!plugin.getConfig().contains(mode)) {
+            player.sendMessage("§c未找到 " + mode + " 模式的配置");
+            return;
+        }
         
-        // 计算GUI大小（至少27格，最多54格）
-        int guiSize = Math.min(54, Math.max(27, (int) Math.ceil(modes.size() / 9.0) * 9));
+        String guiTitle = MODE_GUI_TITLE_PREFIX + mode + "匹配";
+        // 确保标题不超过32个字符
+        if (guiTitle.length() > 32) {
+            guiTitle = guiTitle.substring(0, 32);
+        }
         
-        Inventory gui = Bukkit.createInventory(null, guiSize, GUI_TITLE);
+        Inventory gui = Bukkit.createInventory(null, 27, guiTitle);
         
         // 填充背景玻璃板
         ItemStack background = new ItemStack(Material.STAINED_GLASS_PANE, 1, (short) 15); // 1.12.2中使用STAINED_GLASS_PANE和数据值
@@ -33,12 +34,23 @@ public class MatchGUI {
         backgroundMeta.setDisplayName(" ");
         background.setItemMeta(backgroundMeta);
         
-        for (int i = 0; i < guiSize; i++) {
+        for (int i = 0; i < 27; i++) {
             gui.setItem(i, background);
         }
         
-        // 添加模式选项
-        addModeItems(gui, plugin, modes, preselectedMode);
+        // 添加模式信息
+        addModeInfoItems(gui, plugin, mode);
+        
+        // 添加开始匹配按钮
+        ItemStack matchItem = new ItemStack(getModeMaterial(mode, plugin));
+        ItemMeta matchMeta = matchItem.getItemMeta();
+        matchMeta.setDisplayName("§a§l开始匹配");
+        matchMeta.setLore(Arrays.asList(
+            "§7点击开始匹配" + mode + "模式",
+            "§7当前可用服务器: " + getServerCount(plugin, mode) + "个"
+        ));
+        matchItem.setItemMeta(matchMeta);
+        gui.setItem(13, matchItem); // 放在中间位置
         
         // 添加关闭按钮
         ItemStack closeItem = new ItemStack(Material.BARRIER);
@@ -46,52 +58,33 @@ public class MatchGUI {
         closeMeta.setDisplayName("§c§l关闭");
         closeMeta.setLore(Arrays.asList("§7点击关闭此界面"));
         closeItem.setItemMeta(closeMeta);
-        gui.setItem(guiSize - 5, closeItem); // 放在GUI底部中间
+        gui.setItem(22, closeItem); // 放在底部中间
         
         // 打开GUI
         player.openInventory(gui);
-        
-        // 如果有预选模式，可以直接开始匹配
-        if (preselectedMode != null && modes.contains(preselectedMode)) {
-            // 这里可以添加自动开始匹配的逻辑
-        }
     }
     
-    private static void addModeItems(Inventory gui, NekoMatch plugin, Set<String> modes, String preselectedMode) {
-        int slot = 10; // 从第二行第二个位置开始
+    private static void addModeInfoItems(Inventory gui, NekoMatch plugin, String mode) {
+        // 添加模式信息到GUI顶部
+        ItemStack infoItem = new ItemStack(Material.PAPER);
+        ItemMeta infoMeta = infoItem.getItemMeta();
+        infoMeta.setDisplayName("§b§l" + mode + "模式");
         
-        for (String mode : modes) {
-            // 计算行位置，避免超出GUI边界
-            if (slot >= gui.getSize() - 9) break;
-            
-            // 创建模式选项
-            ItemStack item = new ItemStack(getModeMaterial(mode, plugin));
-            ItemMeta meta = item.getItemMeta();
-            meta.setDisplayName("§6§l" + mode + "模式");
-            
-            // 如果是预选模式，添加特殊标记
-            if (preselectedMode != null && preselectedMode.equals(mode)) {
-                meta.setLore(Arrays.asList(
-                    "§7点击开始匹配" + mode + "模式",
-                    "§7当前可用服务器: " + getServerCount(plugin, mode) + "个",
-                    "§a§l已预选"
-                ));
-            } else {
-                meta.setLore(Arrays.asList(
-                    "§7点击开始匹配" + mode + "模式",
-                    "§7当前可用服务器: " + getServerCount(plugin, mode) + "个"
-                ));
-            }
-            item.setItemMeta(meta);
-            
-            gui.setItem(slot, item);
-            
-            // 计算下一个位置
-            slot++;
-            if ((slot - 1) % 9 == 7) { // 如果到达行尾
-                slot += 2; // 跳到下一行的第二个位置
-            }
+        // 获取服务器列表
+        List<String> servers = plugin.getConfig().getStringList(mode + ".server");
+        String serverInfo = "§7服务器列表: ";
+        if (servers.isEmpty()) {
+            serverInfo += "无";
+        } else {
+            serverInfo += String.join(", ", servers);
         }
+        
+        infoMeta.setLore(Arrays.asList(
+            serverInfo,
+            "§7点击下方按钮开始匹配"
+        ));
+        infoItem.setItemMeta(infoMeta);
+        gui.setItem(4, infoItem); // 放在顶部中间
     }
     
     private static Material getModeMaterial(String mode, NekoMatch plugin) {

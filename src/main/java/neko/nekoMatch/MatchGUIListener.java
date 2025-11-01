@@ -21,8 +21,8 @@ public class MatchGUIListener implements Listener {
         // 1.12.2中使用getTitle()而不是getTitle()
         String inventoryTitle = event.getInventory().getTitle();
         
-        // 检查是否是匹配GUI
-        if (inventoryTitle.equals("§b§l匹配模式选择")) {
+        // 检查是否是特定模式的匹配GUI（标题以"§b§l"开头并以"匹配"结尾）
+        if (inventoryTitle.startsWith("§b§l") && inventoryTitle.endsWith("匹配")) {
             event.setCancelled(true); // 防止玩家拿取物品
             
             if (event.getCurrentItem() == null || event.getCurrentItem().getItemMeta() == null) {
@@ -31,18 +31,18 @@ public class MatchGUIListener implements Listener {
             
             String itemName = event.getCurrentItem().getItemMeta().getDisplayName();
             
-            // 处理关闭按钮点击
-            if (itemName.equals("§c§l关闭")) {
+            // 处理开始匹配按钮点击
+            if (itemName.equals("§a§l开始匹配")) {
                 player.closeInventory();
+                // 从标题中提取模式名称
+                String mode = inventoryTitle.replaceAll("§[0-9a-fk-or]", "").replace("匹配", "").trim();
+                startMatching(player, mode);
                 return;
             }
             
-            // 处理模式点击（检查是否以"模式"结尾）
-            if (itemName.endsWith("§l模式")) {
+            // 处理关闭按钮点击
+            if (itemName.equals("§c§l关闭")) {
                 player.closeInventory();
-                // 提取模式名称（移除颜色代码和"模式"字样）
-                String mode = itemName.replaceAll("§[0-9a-fk-or]", "").replace("模式", "").trim();
-                startMatching(player, mode);
                 return;
             }
         }
