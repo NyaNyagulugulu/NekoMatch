@@ -31,7 +31,26 @@ public class ServerManager {
      * 检查服务器是否可用
      */
     public boolean isServerAvailable(String serverName) {
-        return isServerWaiting(serverName);
+        try {
+            // 首先检查服务器是否在等待中（推荐状态）
+            if (isServerWaiting(serverName)) {
+                return true;
+            }
+            
+            // 如果不在等待中，检查服务器是否可达
+            String serverAddress = getServerAddress(serverName);
+            if (serverAddress != null && !serverAddress.isEmpty()) {
+                String[] parts = serverAddress.split(":");
+                String host = parts[0];
+                int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 25565;
+                return isServerReachable(host, port);
+            }
+            
+            return false;
+        } catch (Exception e) {
+            plugin.getLogger().warning("检查服务器 " + serverName + " 状态时出错: " + e.getMessage());
+            return false;
+        }
     }
     
     /**

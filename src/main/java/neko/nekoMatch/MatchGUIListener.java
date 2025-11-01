@@ -79,11 +79,19 @@ public class MatchGUIListener implements Listener {
             // 返回模式选择GUI
             String mode = extractModeFromServerStatusTitle(inventoryTitle);
             matchGUI.openModeSpecificGUI(player, mode);
-        } else if (displayName.startsWith(ChatColor.GREEN.toString()) || displayName.startsWith(ChatColor.RED.toString())) {
-            // 手动加入服务器
+        } else if (displayName.startsWith(ChatColor.GREEN.toString())) {
+            // 手动加入服务器 (绿色名称表示在线服务器)
             String serverName = ChatColor.stripColor(displayName);
             plugin.connectToServer(player, serverName);
             player.sendMessage(ChatColor.GREEN + "正在连接到服务器 " + serverName + "...");
+            player.closeInventory();
+        } else if (displayName.startsWith(ChatColor.RED.toString())) {
+            // 尝试加入离线服务器 (红色名称表示离线服务器)
+            String serverName = ChatColor.stripColor(displayName);
+            player.sendMessage(ChatColor.RED + "服务器 " + serverName + " 当前离线，无法连接");
+            // 仍然尝试连接，因为玩家可能知道服务器实际上是在线的
+            plugin.connectToServer(player, serverName);
+            player.sendMessage(ChatColor.YELLOW + "正在尝试连接到服务器 " + serverName + "...");
             player.closeInventory();
         }
     }

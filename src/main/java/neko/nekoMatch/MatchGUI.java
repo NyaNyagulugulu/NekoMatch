@@ -90,7 +90,6 @@ public class MatchGUI {
         int slot = 0;
         for (String serverName : servers) {
             // 检查服务器状态
-            String serverAddress = config.getString("servers." + serverName + ".address", "localhost:25565");
             boolean isAvailable = checkServerStatus(serverName); // 使用ServerManager检查状态
             
             ItemStack serverItem;
@@ -104,7 +103,6 @@ public class MatchGUI {
             serverMeta.setDisplayName(ChatColor.GREEN + serverName);
             
             java.util.List<String> lore = java.util.Arrays.asList(
-                ChatColor.WHITE + "地址: " + serverAddress,
                 ChatColor.WHITE + "状态: " + (isAvailable ? ChatColor.GREEN + "在线" : ChatColor.RED + "离线"),
                 "",
                 ChatColor.YELLOW + "点击手动加入"
