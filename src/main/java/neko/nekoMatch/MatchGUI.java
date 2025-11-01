@@ -99,16 +99,21 @@ public class MatchGUI {
                 serverItem = new ItemStack(Material.WOOL, 1, (short) 14); // 红色羊毛
             }
             
-            ItemMeta serverMeta = serverItem.getItemMeta();
-            serverMeta.setDisplayName(ChatColor.GREEN + serverName);
+            ItemMeta serverMeta = serverItem.getItemMeta();
+            // 根据服务器是否在线来设置颜色
+            if (isAvailable) {
+                serverMeta.setDisplayName(ChatColor.GREEN + serverName); // 绿色表示在线
+            } else {
+                serverMeta.setDisplayName(ChatColor.RED + serverName); // 红色表示离线
+            }
             
-            java.util.List<String> lore = java.util.Arrays.asList(
-                ChatColor.WHITE + "状态: " + (isAvailable ? ChatColor.GREEN + "在线" : ChatColor.RED + "离线"),
-                "",
-                ChatColor.YELLOW + "点击手动加入"
-            );
+            java.util.List<String> lore = java.util.Arrays.asList(
+                ChatColor.WHITE + "状态: " + (isAvailable ? ChatColor.GREEN + "在线" : ChatColor.RED + "离线"),
+                "",
+                ChatColor.YELLOW + "点击手动加入"
+            );
             
-            serverMeta.setLore(lore);
+            serverMeta.setLore(lore);
             serverItem.setItemMeta(serverMeta);
             
             if (slot < 54) {

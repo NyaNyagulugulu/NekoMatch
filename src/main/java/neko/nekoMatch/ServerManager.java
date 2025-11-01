@@ -10,6 +10,8 @@ import java.net.Socket;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.ByteArrayOutputStream;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class ServerManager {
     private final JavaPlugin plugin;
@@ -136,144 +138,70 @@ public class ServerManager {
      * 检查服务器MOTD信息
      */
     private boolean checkServerMOTD(String serverName, String host, int port) {
-        Socket socket = null;
-        try {
+        try (Socket socket = new Socket()) {
             plugin.getLogger().info("正在连接到服务器 " + host + ":" + port + " 获取MOTD信息");
-            socket = new Socket();
             socket.connect(new InetSocketAddress(host, port), 5000); // 5秒超时
             
             plugin.getLogger().info("成功连接到服务器 " + host + ":" + port + "，正在获取MOTD信息");
             
-            DataOutputStream output = new DataOutputStream(socket.getOutputStream());
-            DataInputStream input = new DataInputStream(socket.getInputStream());
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+            DataInputStream in = new DataInputStream(socket.getInputStream());
+
+            // === Handshake ===
+            ByteArrayOutputStream handshake_bytes = new ByteArrayOutputStream();
+            DataOutputStream handshake = new DataOutputStream(handshake_bytes);
+
+            writeVarInt(handshake, 0x00); // packet id
+            writeVarInt(handshake, 340); // protocol 1.12.2
+            writeString(handshake, host);
+            handshake.writeShort(port);
+            writeVarInt(handshake, 1); // next state: status
+
+            // 写入包长度 + 包体
+            writeVarInt(out, handshake_bytes.size());
+            out.write(handshake_bytes.toByteArray());
+
+            // === 请求状态包 ===
+            out.writeByte(1); // length
+            out.writeByte(0); // packet id
+
+            // === 读取响应 ===
+            int size = readVarInt(in);
+            int packetId = readVarInt(in);
             
-            // 发送握手包
-            plugin.getLogger().info("发送握手包到服务器 " + host + ":" + port);
-            output.write(0x00); // packet ID
-            // 写入协议版本 (使用340表示1.12.2版本)
-            writeVarInt(output, 340); // 1.12.2的协议版本号
-            // 写入服务器地址
-            writeString(output, host);
-            // 写入服务器端口
-            output.writeShort(port);
-            // 写入状态
-            writeVarInt(output, 1); // 1 = 状态请求
-            
-            // 发送状态请求
-            plugin.getLogger().info("发送状态请求到服务器 " + host + ":" + port);
-            output.write(0x00); // packet ID
-            writeVarInt(output, 0); // 数据长度
-            
-            // 读取响应
-            plugin.getLogger().info("等待服务器响应...");
-            try {
-                // 检查是否有数据可读
-                if (input.available() <= 0) {
-                    plugin.getLogger().warning("服务器 " + serverName + " 没有返回任何数据");
-                    return false;
-                }
-                
-                int length = readVarInt(input);
-                plugin.getLogger().info("收到响应长度: " + length);
-                
-                // 检查长度是否有效
-                if (length <= 0) {
-                    plugin.getLogger().warning("服务器 " + serverName + " 返回了无效的响应长度: " + length);
-                    return false;
-                }
-                
-                int packetID = readVarInt(input);
-                plugin.getLogger().info("收到数据包ID: " + packetID);
-                
-                if (packetID == 0x00) { // 状态响应
-                    int responseLength = readVarInt(input);
-                    plugin.getLogger().info("收到响应数据长度: " + responseLength);
-                    if (responseLength > 0) {
-                        // 确保不会读取超过可用的数据
-                        if (responseLength > input.available()) {
-                            plugin.getLogger().warning("服务器 " + serverName + " 声明的响应长度大于实际可用数据");
-                            return false;
-                        }
-                        
-                        byte[] responseData = new byte[responseLength];
-                        input.readFully(responseData);
-                        
-                        String jsonResponse = new String(responseData, "UTF-8");
-                        plugin.getLogger().info("从服务器 " + host + ":" + port + " 接收到响应: " + jsonResponse);
-                        
-                        // 简单解析JSON响应并提取MOTD
-                        // 由于没有Gson库，我们使用简单的字符串解析
-                        int descStart = jsonResponse.indexOf("\"description\":\"");
-                        if (descStart != -1) {
-                            descStart += 14; // 跳过"\"description\":\""
-                            int descEnd = jsonResponse.indexOf("\"", descStart);
-                            if (descEnd != -1) {
-                                String motd = jsonResponse.substring(descStart, descEnd);
-                                // 处理转义字符
-                                motd = motd.replace("\\\"", "\"");
-                                motd = motd.replace("\\\\", "\\");
-                                motd = motd.replace("\\n", "\n");
-                                plugin.getLogger().info("服务器 " + serverName + " 返回的MOTD: " + motd);
-                                if (motd.contains("等待中")) {
-                                    plugin.getLogger().info("服务器 " + serverName + " 包含\"等待中\"关键词，标记为可用");
-                                    return true;
-                                }
-                                plugin.getLogger().info("服务器 " + serverName + " 不包含\"等待中\"关键词");
-                                return false;
-                            }
-                        }
-                        
-                        // 处理复杂的MOTD格式 (包含"text"字段)
-                        int textStart = jsonResponse.indexOf("\"text\":\"");
-                        if (textStart != -1) {
-                            textStart += 8; // 跳过"\"text\":\""
-                            int textEnd = jsonResponse.indexOf("\"", textStart);
-                            if (textEnd != -1) {
-                                String motd = jsonResponse.substring(textStart, textEnd);
-                                // 处理转义字符
-                                motd = motd.replace("\\\"", "\"");
-                                motd = motd.replace("\\\\", "\\");
-                                motd = motd.replace("\\n", "\n");
-                                plugin.getLogger().info("服务器 " + serverName + " 返回的MOTD: " + motd);
-                                if (motd.contains("等待中")) {
-                                    plugin.getLogger().info("服务器 " + serverName + " 包含\"等待中\"关键词，标记为可用");
-                                    return true;
-                                }
-                                plugin.getLogger().info("服务器 " + serverName + " 不包含\"等待中\"关键词");
-                                return false;
-                            }
-                        }
-                        
-                        plugin.getLogger().warning("无法从服务器 " + serverName + " 的响应中解析MOTD");
-                        return false;
-                    } else {
-                        plugin.getLogger().warning("服务器 " + serverName + " 返回了空的响应");
-                        return false;
-                    }
-                } else {
-                    plugin.getLogger().warning("服务器 " + serverName + " 返回了无效的数据包ID: " + packetID);
-                    return false;
-                }
-            } catch (IOException e) {
-                plugin.getLogger().warning("读取服务器 " + serverName + " 响应时出错: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            if (packetId != 0x00) { // 状态响应
+                plugin.getLogger().warning("服务器 " + serverName + " 返回了无效的数据包ID: " + packetId);
                 return false;
             }
-        } catch (IOException e) {
-            plugin.getLogger().warning("无法连接到服务器 " + serverName + " (" + host + ":" + port + "): " + e.getClass().getSimpleName() + " - " + e.getMessage());
-            e.printStackTrace(); // 打印完整的堆栈跟踪以帮助诊断问题
-            return false;
-        } catch (Exception e) {
-            plugin.getLogger().warning("检查服务器 " + serverName + " 时发生未知错误: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-            e.printStackTrace(); // 打印完整的堆栈跟踪以帮助诊断问题
-            return false;
-        } finally {
-            if (socket != null) {
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    plugin.getLogger().warning("关闭到服务器 " + serverName + " 的连接时出错: " + e.getMessage());
-                }
+            
+            int stringLength = readVarInt(in);
+            if (stringLength <= 0) {
+                plugin.getLogger().warning("服务器 " + serverName + " 返回了无效的响应长度: " + stringLength);
+                return false;
             }
+            
+            byte[] data = new byte[stringLength];
+            in.readFully(data);
+
+            String json = new String(data, "UTF-8");
+            plugin.getLogger().info("从服务器 " + host + ":" + port + " 接收到响应: " + json);
+            
+            JsonObject obj = new JsonParser().parse(json).getAsJsonObject();
+            JsonObject description = obj.getAsJsonObject("description");
+            
+            String motd;
+            if (description.has("text")) {
+                motd = description.get("text").getAsString();
+            } else {
+                motd = description.toString();
+            }
+            
+            plugin.getLogger().info("服务器 " + serverName + " 返回的MOTD: " + motd);
+            return motd.contains("等待中");
+        } catch (Exception e) {
+            plugin.getLogger().warning("检查服务器 " + serverName + " 时发生错误: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            e.printStackTrace(); // 打印完整的堆栈跟踪以帮助诊断问题
+            return false;
         }
     }
     
@@ -343,17 +271,19 @@ public class ServerManager {
      */
     private int readVarInt(DataInputStream input) throws IOException {
         int value = 0;
-        int size = 0;
-        byte b;
+        int position = 0;
+        byte currentByte;
         
-        while (((b = input.readByte()) & 0x80) == 0x80) {
-            value |= (b & 0x7F) << (size++ * 7);
+        while (true) {
+            currentByte = input.readByte();
+            value |= (currentByte & 0x7F) << (position * 7);
             
-            if (size > 5) {
-                throw new RuntimeException("VarInt越界");
-            }
+            if ((currentByte & 0x80) == 0) break;
+            
+            position++;
+            if (position > 5) throw new RuntimeException("VarInt越界");
         }
         
-        return value | ((b & 0x7F) << (size * 7));
+        return value;
     }
 }
