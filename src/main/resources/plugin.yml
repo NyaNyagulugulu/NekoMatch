@@ -1,16 +1,14 @@
 name: NekoMatch
-version: '1.0-SNAPSHOT'
+version: 1.0-SNAPSHOT
 main: neko.nekoMatch.NekoMatch
-api-version: '1.12'
+api-version: 1.12
 authors: [ 不穿胖次の小奶猫 ]
 website: https://cnmsb.xin/
 
 commands:
   match:
-    description: 打开对应模式的匹配GUI
-    usage: /match <模式名称>
-    aliases: [m]
+    description: 打开匹配界面或加入指定模式
+    usage: /match [模式]
   matchreload:
-    description: 重载配置文件
+    description: 重新加载插件配置
     usage: /matchreload
-    aliases: [mr]
