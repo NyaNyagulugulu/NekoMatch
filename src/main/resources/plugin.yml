@@ -1,6 +1,16 @@
 name: NekoMatch
 version: '1.0-SNAPSHOT'
 main: neko.nekoMatch.NekoMatch
-api-version: '1.18'
+api-version: '1.12'
 authors: [ 不穿胖次の小奶猫 ]
 website: https://cnmsb.xin/
+
+commands:
+  match:
+    description: 开始匹配指定模式
+    usage: /match <模式名称>
+    aliases: [m]
+  matchreload:
+    description: 重载配置文件
+    usage: /matchreload
+    aliases: [mr]

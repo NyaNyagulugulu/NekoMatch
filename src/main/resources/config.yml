@@ -1,0 +1,37 @@
+# NekoMatch 服务器配置文件
+# 格式: 
+# 模式名称:
+#   server:
+#     - 服务器名称1
+#     - 服务器名称2
+
+4v4:
+  server:
+    - ba1
+    - ba2
+1v1:
+  server:
+    - ba10
+    - ba11
+8v8:
+  server:
+    - ba20
+    - ba21
+123:
+  server:
+    - test
+    - test2
+
+# 材料配置（用于GUI显示）
+# 每个模式对应的材料名称
+materials:
+  1v1: IRON_SWORD
+  2v2: GOLD_INGOT
+  4v4: DIAMOND
+  8v8: DIAMOND
+  ffa: BOW
+
+# MOTD 等待中模板
+# 插件会检查服务器的MOTD是否匹配以下模式
+# 匹配模式: "$currentplayers$/$maxplayers$" (例如 "0/20")
+waiting_motd_pattern: "\$currentplayers\$/\$maxplayers\$"
