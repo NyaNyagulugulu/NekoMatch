@@ -4,7 +4,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
 import java.util.List;
-import java.util.Random;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -25,32 +24,6 @@ public class ServerManager {
     public void reinitialize() {
         // 重新加载配置等操作
         plugin.reloadConfig();
-    }
-    
-    /**
-     * 检查服务器是否可用
-     */
-    public boolean isServerAvailable(String serverName) {
-        try {
-            // 首先检查服务器是否在等待中（推荐状态）
-            if (isServerWaiting(serverName)) {
-                return true;
-            }
-            
-            // 如果不在等待中，检查服务器是否可达
-            String serverAddress = getServerAddress(serverName);
-            if (serverAddress != null && !serverAddress.isEmpty()) {
-                String[] parts = serverAddress.split(":");
-                String host = parts[0];
-                int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 25565;
-                return isServerReachable(host, port);
-            }
-            
-            return false;
-        } catch (Exception e) {
-            plugin.getLogger().warning("检查服务器 " + serverName + " 状态时出错: " + e.getMessage());
-            return false;
-        }
     }
     
     /**
@@ -83,7 +56,7 @@ public class ServerManager {
     }
     
     /**
-     * 通过MOTD检查服务器状态，选择合适的服务器
+     * 通过MOTD检查服务器状态，选择合适的服务器（仅选择包含"等待中"的服务器用于自动匹配）
      */
     public String selectAvailableServer(String mode) {
         FileConfiguration config = plugin.getConfig();
@@ -91,52 +64,23 @@ public class ServerManager {
         
         plugin.getLogger().info("正在为模式 " + mode + " 选择服务器，共有 " + serverList.size() + " 个服务器可选");
         
-        // 首先尝试找到MOTD包含"等待中"的服务器
+        // 只选择MOTD包含"等待中"关键词的服务器
         for (String serverName : serverList) {
-            plugin.getLogger().info("正在检查服务器 " + serverName + " 是否可用");
+            plugin.getLogger().info("正在检查服务器 " + serverName + " 是否在等待中");
             if (isServerWaiting(serverName)) {
                 plugin.getLogger().info("找到可用服务器: " + serverName);
                 return serverName;
             }
         }
         
-        // 如果没有找到包含"等待中"的服务器，随机选择一个可达的服务器
-        List<String> reachableServers = getReachableServers(serverList);
-        if (!reachableServers.isEmpty()) {
-            Random random = new Random();
-            String selectedServer = reachableServers.get(random.nextInt(reachableServers.size()));
-            plugin.getLogger().info("未找到包含\"等待中\"的服务器，随机选择可达服务器: " + selectedServer);
-            return selectedServer;
-        }
-        
-        plugin.getLogger().warning("没有找到可用的服务器用于模式 " + mode);
+        plugin.getLogger().warning("没有找到MOTD包含\"等待中\"关键词的服务器用于模式 " + mode);
         return null;
     }
     
     /**
-     * 获取所有可达的服务器列表
+     * 检查服务器是否处于等待状态（MOTD包含"等待中"关键词）
      */
-    private List<String> getReachableServers(List<String> serverList) {
-        List<String> reachableServers = new java.util.ArrayList<>();
-        for (String serverName : serverList) {
-            String serverAddress = getServerAddress(serverName);
-            if (serverAddress != null && !serverAddress.isEmpty()) {
-                String[] parts = serverAddress.split(":");
-                String host = parts[0];
-                int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 25565;
-                
-                if (isServerReachable(host, port)) {
-                    reachableServers.add(serverName);
-                }
-            }
-        }
-        return reachableServers;
-    }
-    
-    /**
-     * 检查服务器MOTD是否包含"等待中"关键词
-     */
-    private boolean isServerWaiting(String serverName) {
+    public boolean isServerWaiting(String serverName) {
         // 从配置中获取服务器地址和端口信息
         String serverAddress = getServerAddress(serverName);
         
@@ -347,6 +291,27 @@ public class ServerManager {
         
         // 如果配置中没有单独的地址信息，则返回默认端口的localhost
         return "localhost:25565"; // 这需要在实际部署时修改为正确地址
+    }
+    
+    /**
+     * 检查服务器是否可用（用于手动连接，只要服务器可达就可以连接）
+     */
+    public boolean isServerAvailable(String serverName) {
+        try {
+            // 对于手动连接，只要服务器可达就可以连接
+            String serverAddress = getServerAddress(serverName);
+            if (serverAddress != null && !serverAddress.isEmpty()) {
+                String[] parts = serverAddress.split(":");
+                String host = parts[0];
+                int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 25565;
+                return isServerReachable(host, port);
+            }
+            
+            return false;
+        } catch (Exception e) {
+            plugin.getLogger().warning("检查服务器 " + serverName + " 状态时出错: " + e.getMessage());
+            return false;
+        }
     }
     
     /**
