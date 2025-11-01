@@ -16,7 +16,7 @@ public class MatchCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("此命令只能由玩家执行");
+            sender.sendMessage("このコマンドはプレイヤーのみ実行可能です");
             return true;
         }
 
