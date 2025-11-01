@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.ByteArrayOutputStream;
 
 public class ServerManager {
     private final JavaPlugin plugin;
@@ -40,7 +41,14 @@ public class ServerManager {
         
         // 使用BungeeCord的插件消息通道连接到Velocity服务器
         try {
-            player.sendPluginMessage(plugin, "BungeeCord", ("Connect:" + serverName).getBytes("UTF-8"));
+            // 构造正确的连接消息格式
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(b);
+            
+            out.writeUTF("Connect");
+            out.writeUTF(serverName);
+            
+            player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
             plugin.getLogger().info("已发送连接消息到玩家 " + player.getName() + "，目标服务器: " + serverName);
         } catch (Exception e) {
             plugin.getLogger().warning("无法连接玩家 " + player.getName() + " 到服务器 " + serverName + ": " + e.getClass().getSimpleName() + " - " + e.getMessage());

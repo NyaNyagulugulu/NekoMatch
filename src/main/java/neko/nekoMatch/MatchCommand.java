@@ -29,31 +29,24 @@ public class MatchCommand implements CommandExecutor {
         }
 
         if (args.length == 0) {
-            // 打开匹配GUI
-            openMatchGUI(player);
+            // 默认打开4v4模式的匹配GUI
+            openModeSpecificGUI(player, "4v4");
         } else {
             String mode = args[0];
-            // 尝试匹配到指定模式
-            joinMatch(player, mode);
+            // 打开对应模式的匹配GUI
+            openModeSpecificGUI(player, mode);
         }
 
         return true;
     }
 
-    private void openMatchGUI(Player player) {
-        // 获取MatchGUIListener实例并打开GUI
-        MatchGUIListener guiListener = new MatchGUIListener(plugin);
-        guiListener.openMatchGUI(player);
-    }
-
-    private void joinMatch(Player player, String mode) {
-        // 使用ServerManager选择合适的服务器
-        String serverName = plugin.selectAvailableServer(mode);
-        if (serverName != null) {
-            plugin.connectToServer(player, serverName);
-            player.sendMessage(ChatColor.GREEN + "正在将您连接到 " + serverName + " 服务器...");
+    private void openModeSpecificGUI(Player player, String mode) {
+        // 验证模式是否存在
+        if (plugin.getConfig().contains("modes." + mode)) {
+            MatchGUI gui = new MatchGUI(plugin);
+            gui.openModeSpecificGUI(player, mode);
         } else {
-            player.sendMessage(ChatColor.RED + "当前没有可用的 " + mode + " 服务器，请稍后再试");
+            player.sendMessage(ChatColor.RED + "未知的游戏模式: " + mode);
         }
     }
 }

@@ -1,24 +1,42 @@
 # NekoMatch 配置文件
-# 直接连接到 Paper 1.12.2 服务器
+# 使用 Velocity (VC) 作为代理
 
 # 服务器地址配置
-# 这些地址应该是实际的Paper游戏服务器地址
 # 格式: 服务器名: "IP地址:端口"
 servers:
-  # 4v4 服务器示例 (Paper 1.12.2)
-  paper-server-1:
-    address: "127.0.0.1:25565"
-  paper-server-2:
+  # 1v1 服务器
+  vc-1v1-a:
+    address: "127.0.0.1:25561"
+  vc-1v1-b:
+    address: "127.0.0.1:25562"
+  
+  # 2v2 服务器
+  vc-2v2-a:
+    address: "127.0.0.1:25563"
+  vc-2v2-b:
+    address: "127.0.0.1:25564"
+  
+  # 4v4 服务器
+  ba1:
+    address: "127.0.0.1:1000"
+  vc-4v4-b:
     address: "127.0.0.1:25566"
-  paper-server-3:
-    address: "127.0.0.1:25567"
 
 # 游戏模式配置
 # 每个模式可以配置多个服务器，插件会自动选择状态为"等待中"的服务器
 modes:
+  1v1:
+    servers:
+      - vc-1v1-a
+      - vc-1v1-b
+    description: "单人对战"
+  2v2:
+    servers:
+      - vc-2v2-a
+      - vc-2v2-b
+    description: "双人对决"
   4v4:
     servers:
-      - paper-server-1
-      - paper-server-2
-      - paper-server-3
-    description: "四人团队战 (Paper 1.12.2)"
+      - ba1
+      - vc-4v4-b
+    description: "四人团队战"
