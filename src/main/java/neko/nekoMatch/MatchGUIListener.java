@@ -4,10 +4,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.Material;
 import org.bukkit.ChatColor;
 
 public class MatchGUIListener implements Listener {
@@ -37,6 +36,8 @@ public class MatchGUIListener implements Listener {
 
         if (inventoryTitle.contains("匹配模式选择")) {
             handleModeSpecificGUI(player, clickedItem, inventoryTitle);
+        } else if (inventoryTitle.contains("服务器状态")) {
+            handleServerStatusGUI(player, clickedItem, inventoryTitle);
         }
     }
 
@@ -61,6 +62,29 @@ public class MatchGUIListener implements Listener {
             } else {
                 player.sendMessage(ChatColor.RED + "当前没有可用的 " + mode + " 服务器");
             }
+        } else if (displayName.equals(ChatColor.LIGHT_PURPLE + "服务器信息")) {
+            // 打开服务器状态GUI
+            String mode = extractModeFromTitle(inventoryTitle);
+            matchGUI.openServerStatusGUI(player, mode);
+        }
+    }
+
+    private void handleServerStatusGUI(Player player, ItemStack clickedItem, String inventoryTitle) {
+        ItemMeta meta = clickedItem.getItemMeta();
+        if (meta == null) return;
+        
+        String displayName = meta.getDisplayName();
+        
+        if (displayName.equals(ChatColor.AQUA + "返回")) {
+            // 返回模式选择GUI
+            String mode = extractModeFromServerStatusTitle(inventoryTitle);
+            matchGUI.openModeSpecificGUI(player, mode);
+        } else if (displayName.startsWith(ChatColor.GREEN.toString()) || displayName.startsWith(ChatColor.RED.toString())) {
+            // 手动加入服务器
+            String serverName = ChatColor.stripColor(displayName);
+            plugin.connectToServer(player, serverName);
+            player.sendMessage(ChatColor.GREEN + "正在连接到服务器 " + serverName + "...");
+            player.closeInventory();
         }
     }
 
@@ -74,5 +98,10 @@ public class MatchGUIListener implements Listener {
             return "4v4";
         }
         return "4v4"; // 默认模式
+    }
+    
+    private String extractModeFromServerStatusTitle(String title) {
+        // 从标题中提取模式名称，例如从 "4v4 服务器状态" 提取 "4v4"
+        return title.replace(" 服务器状态", "");
     }
 }

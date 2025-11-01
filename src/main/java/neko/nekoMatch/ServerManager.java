@@ -28,6 +28,13 @@ public class ServerManager {
     }
     
     /**
+     * 检查服务器是否可用
+     */
+    public boolean isServerAvailable(String serverName) {
+        return isServerWaiting(serverName);
+    }
+    
+    /**
      * 连接玩家到指定服务器
      */
     public void connectToServer(Player player, String serverName) {
