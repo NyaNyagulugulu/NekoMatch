@@ -152,7 +152,8 @@ public class ServerManager {
             DataOutputStream handshake = new DataOutputStream(handshake_bytes);
 
             writeVarInt(handshake, 0x00); // packet id
-            writeVarInt(handshake, 340); // protocol 1.12.2
+            //writeVarInt(handshake, 340); // protocol 1.12.2
+            writeVarInt(handshake, 47); // protocol 1.8.9 / 1.8.8
             writeString(handshake, host);
             handshake.writeShort(port);
             writeVarInt(handshake, 1); // next state: status
@@ -187,13 +188,22 @@ public class ServerManager {
             plugin.getLogger().info("从服务器 " + host + ":" + port + " 接收到响应: " + json);
             
             JsonObject obj = new JsonParser().parse(json).getAsJsonObject();
-            JsonObject description = obj.getAsJsonObject("description");
+            String motd = "";
             
-            String motd;
-            if (description.has("text")) {
-                motd = description.get("text").getAsString();
-            } else {
-                motd = description.toString();
+            // 兼容不同版本的MOTD格式
+            if (obj.has("description")) {
+                if (obj.get("description").isJsonPrimitive()) {
+                    // 1.8.x 可能直接返回字符串
+                    motd = obj.get("description").getAsString();
+                } else if (obj.get("description").isJsonObject()) {
+                    // 1.12+ 格式
+                    JsonObject description = obj.getAsJsonObject("description");
+                    if (description.has("text")) {
+                        motd = description.get("text").getAsString();
+                    } else {
+                        motd = description.toString();
+                    }
+                }
             }
             
             plugin.getLogger().info("服务器 " + serverName + " 返回的MOTD: " + motd);
