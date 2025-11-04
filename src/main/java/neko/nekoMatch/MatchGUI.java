@@ -89,31 +89,52 @@ public class MatchGUI {
         
         int slot = 0;
         for (String serverName : servers) {
-            // 检查服务器状态
-            boolean isAvailable = checkServerStatus(serverName); // 使用ServerManager检查状态
+            // 获取服务器详细状态
+            ServerManager.ServerStatus status = plugin.getServerManager().getServerStatus(serverName);
             
             ItemStack serverItem;
-            if (isAvailable) {
-                serverItem = new ItemStack(Material.WOOL, 1, (short) 5); // 绿色羊毛
-            } else {
-                serverItem = new ItemStack(Material.WOOL, 1, (short) 14); // 红色羊毛
+            String displayName;
+            String statusText;
+            String clickText = ChatColor.YELLOW + "点击手动加入";
+            
+            switch (status) {
+                case DEVELOPING:
+                    serverItem = new ItemStack(Material.WOOL, 1, (short) 4); // 黄色羊毛
+                    displayName = ChatColor.YELLOW + serverName;
+                    statusText = ChatColor.YELLOW + "开发中";
+                    clickText = ChatColor.RED + "服务器正在维护中";
+                    break;
+                case PLAYING:
+                    serverItem = new ItemStack(Material.WOOL, 1, (short) 14); // 红色羊毛
+                    displayName = ChatColor.RED + serverName;
+                    statusText = ChatColor.RED + "游戏中";
+                    clickText = ChatColor.RED + "服务器正在游戏中";
+                    break;
+                case WAITING:
+                    serverItem = new ItemStack(Material.WOOL, 1, (short) 5); // 绿色羊毛
+                    displayName = ChatColor.GREEN + serverName;
+                    statusText = ChatColor.GREEN + "等待中";
+                    clickText = ChatColor.YELLOW + "点击手动加入";
+                    break;
+                case OFFLINE:
+                default:
+                    serverItem = new ItemStack(Material.WOOL, 1, (short) 7); // 灰色羊毛
+                    displayName = ChatColor.GRAY + serverName;
+                    statusText = ChatColor.GRAY + "离线";
+                    clickText = ChatColor.RED + "服务器离线";
+                    break;
             }
             
-            ItemMeta serverMeta = serverItem.getItemMeta();
-            // 根据服务器是否在线来设置颜色
-            if (isAvailable) {
-                serverMeta.setDisplayName(ChatColor.GREEN + serverName); // 绿色表示在线
-            } else {
-                serverMeta.setDisplayName(ChatColor.RED + serverName); // 红色表示离线
-            }
+            ItemMeta serverMeta = serverItem.getItemMeta();
+            serverMeta.setDisplayName(displayName);
             
-            java.util.List<String> lore = java.util.Arrays.asList(
-                ChatColor.WHITE + "状态: " + (isAvailable ? ChatColor.GREEN + "在线" : ChatColor.RED + "离线"),
-                "",
-                ChatColor.YELLOW + "点击手动加入"
-            );
+            java.util.List<String> lore = java.util.Arrays.asList(
+                ChatColor.WHITE + "状态: " + statusText,
+                "",
+                clickText
+            );
             
-            serverMeta.setLore(lore);
+            serverMeta.setLore(lore);
             serverItem.setItemMeta(serverMeta);
             
             if (slot < 54) {
