@@ -69,7 +69,12 @@ public class ServerManager {
      * 通过MOTD检查服务器状态，选择合适的服务器（仅选择包含"等待中"的服务器用于自动匹配）
      */
     public String selectAvailableServer(String mode) {
+        plugin.getLogger().info("开始为模式 " + mode + " 选择服务器");
         FileConfiguration config = plugin.getConfig();
+        if (!config.contains("modes." + mode)) {
+            plugin.getLogger().warning("配置文件中不存在模式: " + mode);
+            return null;
+        }
         List<String> serverList = config.getStringList("modes." + mode + ".servers");
         
         plugin.getLogger().info("正在为模式 " + mode + " 选择服务器，共有 " + serverList.size() + " 个服务器可选");

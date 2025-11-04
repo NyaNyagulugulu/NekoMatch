@@ -41,12 +41,37 @@ public class MatchCommand implements CommandExecutor {
     }
 
     private void openModeSpecificGUI(Player player, String mode) {
-        // 验证模式是否存在
+        plugin.getLogger().info("尝试打开模式: " + mode);
+        // 首先尝试直接查找模式
         if (plugin.getConfig().contains("modes." + mode)) {
+            plugin.getLogger().info("直接找到模式: " + mode);
             MatchGUI gui = new MatchGUI(plugin);
             gui.openModeSpecificGUI(player, mode);
-        } else {
-            player.sendMessage(ChatColor.RED + "未知的游戏模式: " + mode);
+            return;
         }
+        
+        // 如果直接查找失败，尝试通过描述查找模式ID
+        if (plugin.getConfig().contains("modes")) {
+            plugin.getLogger().info("在配置文件中查找描述匹配");
+            for (String modeKey : plugin.getConfig().getConfigurationSection("modes").getKeys(false)) {
+                String description = plugin.getConfig().getString("modes." + modeKey + ".description");
+                plugin.getLogger().info("检查模式 " + modeKey + " 描述: " + description);
+                if (mode.equals(description)) {
+                    plugin.getLogger().info("通过描述匹配到模式ID: " + modeKey);
+                    MatchGUI gui = new MatchGUI(plugin);
+                    gui.openModeSpecificGUI(player, modeKey);
+                    return;
+                }
+                // 也检查模式ID是否与输入匹配（处理用户可能直接输入模式ID的情况）
+                if (mode.equals(modeKey)) {
+                    plugin.getLogger().info("通过模式ID匹配到模式: " + modeKey);
+                    MatchGUI gui = new MatchGUI(plugin);
+                    gui.openModeSpecificGUI(player, modeKey);
+                    return;
+                }
+            }
+        }
+        
+        player.sendMessage(ChatColor.RED + "未知的游戏模式: " + mode);
     }
 }

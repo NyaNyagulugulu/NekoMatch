@@ -19,12 +19,14 @@ public class MatchGUI {
     
     public void openModeSpecificGUI(Player player, String mode) {
         // 为特定模式创建匹配GUI
+        // 在标题中存储模式ID以避免字符编码问题
         Inventory gui = Bukkit.createInventory(null, 27, "匹配模式选择 - " + mode);
         
-        // 模式标题
+        // 模式标题 - 显示描述而不是模式ID
+        String description = plugin.getConfig().getString("modes." + mode + ".description", mode);
         ItemStack modeTitle = new ItemStack(getMaterialForMode(mode));
         ItemMeta modeTitleMeta = modeTitle.getItemMeta();
-        modeTitleMeta.setDisplayName(ChatColor.AQUA + mode + " 对战模式");
+        modeTitleMeta.setDisplayName(ChatColor.AQUA + description + " 对战模式");
         modeTitle.setItemMeta(modeTitleMeta);
         gui.setItem(13, modeTitle);
         
@@ -187,6 +189,27 @@ public class MatchGUI {
             case "4v4":
                 return Material.DIAMOND_SWORD;
             default:
+                // 检查是否是中文模式名称，尝试通过配置文件中的描述来判断
+                // 首先检查模式是否是已知的中文描述
+                FileConfiguration config = plugin.getConfig();
+                if (config.contains("modes")) {
+                    for (String modeKey : config.getConfigurationSection("modes").getKeys(false)) {
+                        String description = config.getString("modes." + modeKey + ".description");
+                        if (mode.equals(description)) {
+                            // 根据模式ID来返回相应的材料
+                            switch (modeKey.toLowerCase()) {
+                                case "1v1":
+                                    return Material.IRON_SWORD;
+                                case "2v2":
+                                    return Material.STONE_SWORD;
+                                case "4v4":
+                                    return Material.DIAMOND_SWORD;
+                                default:
+                                    return Material.WOOD_SWORD;
+                            }
+                        }
+                    }
+                }
                 return Material.WOOD_SWORD;
         }
     }
