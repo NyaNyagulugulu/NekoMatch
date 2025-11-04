@@ -28,19 +28,26 @@ public class MatchGUI {
         modeTitle.setItemMeta(modeTitleMeta);
         gui.setItem(13, modeTitle);
         
-        // 服务器信息
-        FileConfiguration config = plugin.getConfig();
-        List<String> servers = config.getStringList("modes." + mode + ".servers");
-        ItemStack serverInfo = new ItemStack(Material.CHEST);
-        ItemMeta serverInfoMeta = serverInfo.getItemMeta();
-        serverInfoMeta.setDisplayName(ChatColor.LIGHT_PURPLE + "服务器信息");
-        serverInfoMeta.setLore(java.util.Arrays.asList(
-            ChatColor.WHITE + "可用服务器: " + ChatColor.GREEN + servers.size() + " 个",
-            ChatColor.WHITE + "状态: " + ChatColor.GREEN + "在线",
-            "",
-            ChatColor.YELLOW + "点击查看服务器状态"
-        ));
-        serverInfo.setItemMeta(serverInfoMeta);
+        // 服务器信息
+        FileConfiguration config = plugin.getConfig();
+        List<String> servers = config.getStringList("modes." + mode + ".servers");
+        // 计算该模式下实际在线的服务器数量
+        int onlineServers = 0;
+        for (String serverName : servers) {
+            if (plugin.getServerManager().isServerAvailable(serverName)) {
+                onlineServers++;
+            }
+        }
+        ItemStack serverInfo = new ItemStack(Material.CHEST);
+        ItemMeta serverInfoMeta = serverInfo.getItemMeta();
+        serverInfoMeta.setDisplayName(ChatColor.LIGHT_PURPLE + "服务器信息");
+        serverInfoMeta.setLore(java.util.Arrays.asList(
+            ChatColor.WHITE + "可用服务器: " + ChatColor.GREEN + onlineServers + "/" + servers.size() + " 个",
+            ChatColor.WHITE + "状态: " + ChatColor.GREEN + "在线",
+            "",
+            ChatColor.YELLOW + "点击查看服务器状态"
+        ));
+        serverInfo.setItemMeta(serverInfoMeta);
         gui.setItem(11, serverInfo);
         
         // 开始匹配按钮
