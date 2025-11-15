@@ -168,19 +168,18 @@ public class ServerManager {
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             DataInputStream in = new DataInputStream(socket.getInputStream());
 
-            // === Handshake ===
-            ByteArrayOutputStream handshake_bytes = new ByteArrayOutputStream();
-            DataOutputStream handshake = new DataOutputStream(handshake_bytes);
-
-            writeVarInt(handshake, 0x00); // packet id
-            //writeVarInt(handshake, 340); // protocol 1.12.2
-            writeVarInt(handshake, 47); // protocol 1.8.9 / 1.8.8
-            writeString(handshake, host);
-            handshake.writeShort(port);
-            writeVarInt(handshake, 1); // next state: status
-
-            // 写入包长度 + 包体
-            writeVarInt(out, handshake_bytes.size());
+            // === Handshake ===
+            ByteArrayOutputStream handshake_bytes = new ByteArrayOutputStream();
+            DataOutputStream handshake = new DataOutputStream(handshake_bytes);
+
+            writeVarInt(handshake, 0x00); // packet id
+            writeVarInt(handshake, 340); // protocol 1.12.2
+            writeString(handshake, host);
+            handshake.writeShort(port);
+            writeVarInt(handshake, 1); // next state: status
+
+            // 写入包长度 + 包体
+            writeVarInt(out, handshake_bytes.size());
             out.write(handshake_bytes.toByteArray());
 
             // === 请求状态包 ===
