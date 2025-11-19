@@ -67,6 +67,7 @@ public class ServerManager {
     
     /**
      * 通过MOTD检查服务器状态，选择合适的服务器（仅选择包含"等待中"的服务器用于自动匹配）
+     * 优先选择等待中且玩家数量最多的服务器
      */
     public String selectAvailableServer(String mode) {
         plugin.getLogger().info("开始为模式 " + mode + " 选择服务器");
@@ -79,17 +80,34 @@ public class ServerManager {
         
         plugin.getLogger().info("正在为模式 " + mode + " 选择服务器，共有 " + serverList.size() + " 个服务器可选");
         
-        // 只选择MOTD包含"等待中"关键词的服务器
+        // 存储等待中的服务器及其玩家数量
+        String bestServer = null;
+        int maxPlayerCount = -1; // 使用-1作为初始值，因为可能有服务器玩家数量为0的情况
+        
+        // 遍历所有服务器，找到等待中且玩家数量最多的服务器
         for (String serverName : serverList) {
             plugin.getLogger().info("正在检查服务器 " + serverName + " 是否在等待中");
             if (isServerWaiting(serverName)) {
-                plugin.getLogger().info("找到可用服务器: " + serverName);
-                return serverName;
+                plugin.getLogger().info("服务器 " + serverName + " 处于等待中状态，正在获取玩家数量");
+                int playerCount = getServerPlayerCount(serverName);
+                plugin.getLogger().info("服务器 " + serverName + " 当前玩家数量: " + playerCount);
+                
+                // 如果当前服务器的玩家数量比之前找到的最佳服务器多，则更新最佳服务器
+                if (playerCount > maxPlayerCount) {
+                    maxPlayerCount = playerCount;
+                    bestServer = serverName;
+                    plugin.getLogger().info("当前最佳服务器更新为: " + serverName + " (玩家数量: " + playerCount + ")");
+                }
             }
         }
         
-        plugin.getLogger().warning("没有找到MOTD包含\"等待中\"关键词的服务器用于模式 " + mode);
-        return null;
+        if (bestServer != null) {
+            plugin.getLogger().info("选择最佳服务器: " + bestServer + " (玩家数量: " + maxPlayerCount + ")");
+            return bestServer;
+        } else {
+            plugin.getLogger().warning("没有找到MOTD包含\"等待中\"关键词的服务器用于模式 " + mode);
+            return null;
+        }
     }
     
     /**
@@ -117,7 +135,7 @@ public class ServerManager {
         // 分离地址和端口
         String[] parts = serverAddress.split(":");
         String host = parts[0];
-        int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 25565; // 默认端口25565
+        int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 1000;
         
         // 验证主机和端口
         if (host == null || host.isEmpty()) {
@@ -168,18 +186,30 @@ public class ServerManager {
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             DataInputStream in = new DataInputStream(socket.getInputStream());
 
-            // === Handshake ===
-            ByteArrayOutputStream handshake_bytes = new ByteArrayOutputStream();
-            DataOutputStream handshake = new DataOutputStream(handshake_bytes);
-
-            writeVarInt(handshake, 0x00); // packet id
-            writeVarInt(handshake, 340); // protocol 1.12.2
-            writeString(handshake, host);
-            handshake.writeShort(port);
-            writeVarInt(handshake, 1); // next state: status
-
-            // 写入包长度 + 包体
-            writeVarInt(out, handshake_bytes.size());
+            // === Handshake ===
+
+            ByteArrayOutputStream handshake_bytes = new ByteArrayOutputStream();
+
+            DataOutputStream handshake = new DataOutputStream(handshake_bytes);
+
+
+
+            writeVarInt(handshake, 0x00); // packet id
+
+            writeVarInt(handshake, 340); // protocol 1.12.2
+
+            writeString(handshake, host);
+
+            handshake.writeShort(port);
+
+            writeVarInt(handshake, 1); // next state: status
+
+
+
+            // 写入包长度 + 包体
+
+            writeVarInt(out, handshake_bytes.size());
+
             out.write(handshake_bytes.toByteArray());
 
             // === 请求状态包 ===
@@ -207,47 +237,88 @@ public class ServerManager {
             String json = new String(data, "UTF-8");
             plugin.getLogger().info("从服务器 " + host + ":" + port + " 接收到响应: " + json);
             
-            JsonObject obj = new JsonParser().parse(json).getAsJsonObject();
-            String motd = "";
-            
-            // 兼容不同版本的MOTD格式
-            if (obj.has("description")) {
-                if (obj.get("description").isJsonPrimitive()) {
-                    // 1.8.x 可能直接返回字符串
-                    motd = obj.get("description").getAsString();
-                } else if (obj.get("description").isJsonObject()) {
-                    // 1.12+ 格式
-                    JsonObject description = obj.getAsJsonObject("description");
-                    if (description.has("text")) {
-                        motd = description.get("text").getAsString();
-                    } else {
-                        motd = description.toString();
-                    }
-                }
-            } else {
-                // 如果没有description字段，尝试获取直接的motd字段
-                if (obj.has("motd")) {
-                    motd = obj.get("motd").getAsString();
-                } else {
-                    // 如果没有找到MOTD字段，可能是格式问题，返回空字符串
-                    motd = "";
-                }
-            }
-            
-            plugin.getLogger().info("服务器 " + serverName + " 返回的MOTD: " + motd);
-            
-            // 根据MOTD内容判断服务器状态
-            if (motd.contains("开发中")) {
-                return ServerStatus.DEVELOPING;
-            } else if (motd.contains("游戏中")) {
-                return ServerStatus.PLAYING;
-            } else if (motd.contains("等待中")) {
-                return ServerStatus.WAITING;
-            } else {
-                // 如果MOTD不包含任何特定状态关键词，但MOTD本身是有效的
-                // 这种情况下我们返回WAITING作为默认可连接状态，因为服务器是可达的
-                plugin.getLogger().info("服务器 " + serverName + " 的MOTD不包含特定状态关键词，视为可连接状态");
-                return ServerStatus.WAITING;
+            JsonObject obj = new JsonParser().parse(json).getAsJsonObject();
+
+            String motd = "";
+
+            
+
+            // 兼容不同版本的MOTD格式
+
+            if (obj.has("description")) {
+
+                if (obj.get("description").isJsonPrimitive()) {
+
+                    // 1.8.x 可能直接返回字符串
+
+                    motd = obj.get("description").getAsString();
+
+                } else if (obj.get("description").isJsonObject()) {
+
+                    // 1.12+ 格式
+
+                    JsonObject description = obj.getAsJsonObject("description");
+
+                    if (description.has("text")) {
+
+                        motd = description.get("text").getAsString();
+
+                    } else {
+
+                        motd = description.toString();
+
+                    }
+
+                }
+
+            } else {
+
+                // 如果没有description字段，尝试获取直接的motd字段
+
+                if (obj.has("motd")) {
+
+                    motd = obj.get("motd").getAsString();
+
+                } else {
+
+                    // 如果没有找到MOTD字段，可能是格式问题，返回空字符串
+
+                    motd = "";
+
+                }
+
+            }
+
+            
+
+            plugin.getLogger().info("服务器 " + serverName + " 返回的MOTD: " + motd);
+
+            
+
+            // 根据MOTD内容判断服务器状态
+
+            if (motd.contains("开发中")) {
+
+                return ServerStatus.DEVELOPING;
+
+            } else if (motd.contains("游戏中")) {
+
+                return ServerStatus.PLAYING;
+
+            } else if (motd.contains("等待中")) {
+
+                return ServerStatus.WAITING;
+
+            } else {
+
+                // 如果MOTD不包含任何特定状态关键词，但MOTD本身是有效的
+
+                // 这种情况下我们返回WAITING作为默认可连接状态，因为服务器是可达的
+
+                plugin.getLogger().info("服务器 " + serverName + " 的MOTD不包含特定状态关键词，视为可连接状态");
+
+                return ServerStatus.WAITING;
+
             }
         } catch (Exception e) {
             plugin.getLogger().warning("检查服务器 " + serverName + " 时发生错误: " + e.getClass().getSimpleName() + " - " + e.getMessage());
@@ -269,7 +340,7 @@ public class ServerManager {
         }
         
         // 如果配置中没有单独的地址信息，则返回默认端口的localhost
-        return "localhost:25565"; // 这需要在实际部署时修改为正确地址
+        return "localhost:1000"; // 这需要在实际部署时修改为正确地址
     }
     
     /**
@@ -307,23 +378,263 @@ public class ServerManager {
     }
     
     /**
+
      * 从输入流读取变长整数
+
      */
+
     private int readVarInt(DataInputStream input) throws IOException {
+
         int value = 0;
+
         int position = 0;
+
         byte currentByte;
+
         
+
         while (true) {
+
             currentByte = input.readByte();
+
             value |= (currentByte & 0x7F) << (position * 7);
+
             
+
             if ((currentByte & 0x80) == 0) break;
+
             
+
             position++;
+
             if (position > 5) throw new RuntimeException("VarInt越界");
+
         }
+
         
+
         return value;
+
     }
+
+    
+
+    /**
+
+     * 获取服务器在线玩家数量
+
+     */
+
+    public int getServerPlayerCount(String serverName) {
+
+        // 从配置中获取服务器地址和端口信息
+
+        String serverAddress = getServerAddress(serverName);
+
+        
+
+        if (serverAddress == null || serverAddress.isEmpty()) {
+
+            plugin.getLogger().warning("无法找到服务器 " + serverName + " 的地址信息");
+
+            return 0;
+
+        }
+
+        
+
+        plugin.getLogger().info("正在获取服务器 " + serverName + " (" + serverAddress + ") 的玩家数量");
+
+        
+
+        // 分离地址和端口
+
+        String[] parts = serverAddress.split(":");
+
+        String host = parts[0];
+
+        int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 1000;
+
+        
+
+        // 验证主机和端口
+
+        if (host == null || host.isEmpty()) {
+
+            plugin.getLogger().warning("服务器 " + serverName + " 的主机地址无效");
+
+            return 0;
+
+        }
+
+        
+
+        if (port <= 0 || port > 65535) {
+
+            plugin.getLogger().warning("服务器 " + serverName + " 的端口无效: " + port);
+
+            return 0;
+
+        }
+
+        
+
+        // 首先尝试简单的TCP连接检查
+
+        if (!isServerReachable(host, port)) {
+
+            plugin.getLogger().warning("服务器 " + serverName + " (" + host + ":" + port + ") 不可达");
+
+            return 0;
+
+        }
+
+        
+
+        // 如果TCP连接成功，再尝试获取服务器信息
+
+        return getServerPlayerCountData(serverName, host, port);
+
+    }
+
+    
+
+    /**
+
+     * 从服务器获取玩家数量数据
+
+     */
+
+    private int getServerPlayerCountData(String serverName, String host, int port) {
+
+        try (Socket socket = new Socket()) {
+
+            plugin.getLogger().info("正在连接到服务器 " + host + ":" + port + " 获取玩家数量信息");
+
+            socket.connect(new InetSocketAddress(host, port), 5000); // 5秒超时
+
+            
+
+            plugin.getLogger().info("成功连接到服务器 " + host + ":" + port + "，正在获取玩家数量信息");
+
+            
+
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+
+            DataInputStream in = new DataInputStream(socket.getInputStream());
+
+
+
+            // === Handshake ===
+
+            ByteArrayOutputStream handshake_bytes = new ByteArrayOutputStream();
+
+            DataOutputStream handshake = new DataOutputStream(handshake_bytes);
+
+
+
+            writeVarInt(handshake, 0x00); // packet id
+
+            writeVarInt(handshake, 340); // protocol 1.12.2
+
+            writeString(handshake, host);
+
+            handshake.writeShort(port);
+
+            writeVarInt(handshake, 1); // next state: status
+
+
+
+            // 写入包长度 + 包体
+
+            writeVarInt(out, handshake_bytes.size());
+
+            out.write(handshake_bytes.toByteArray());
+
+
+
+            // === 请求状态包 ===
+
+            out.writeByte(1); // length
+
+            out.writeByte(0); // packet id
+
+
+
+            // === 读取响应 ===
+
+            int size = readVarInt(in);
+
+            int packetId = readVarInt(in);
+
+            
+
+            if (packetId != 0x00) { // 状态响应
+
+                plugin.getLogger().warning("服务器 " + serverName + " 返回了无效的数据包ID: " + packetId);
+
+                return 0;
+
+            }
+
+            
+
+            int stringLength = readVarInt(in);
+
+            if (stringLength <= 0) {
+
+                plugin.getLogger().warning("服务器 " + serverName + " 返回了无效的响应长度: " + stringLength);
+
+                return 0;
+
+            }
+
+            
+
+            byte[] data = new byte[stringLength];
+
+            in.readFully(data);
+
+
+
+            String json = new String(data, "UTF-8");
+
+            plugin.getLogger().info("从服务器 " + host + ":" + port + " 接收到响应: " + json);
+
+            
+
+            JsonObject obj = new JsonParser().parse(json).getAsJsonObject();
+
+            
+
+            // 从响应中获取在线玩家数量
+
+            if (obj.has("players") && obj.getAsJsonObject("players").has("online")) {
+
+                int onlinePlayers = obj.getAsJsonObject("players").get("online").getAsInt();
+
+                plugin.getLogger().info("服务器 " + serverName + " 在线玩家数量: " + onlinePlayers);
+
+                return onlinePlayers;
+
+            } else {
+
+                plugin.getLogger().info("服务器 " + serverName + " 的响应中未找到玩家数量信息");
+
+                return 0;
+
+            }
+
+        } catch (Exception e) {
+
+            plugin.getLogger().warning("获取服务器 " + serverName + " 玩家数量时发生错误: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+
+            e.printStackTrace(); // 打印完整的堆栈跟踪以帮助诊断问题
+
+            return 0;
+
+        }
+
+    }
+
 }
