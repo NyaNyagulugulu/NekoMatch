@@ -83,7 +83,8 @@ public class MatchGUIListener implements Listener {
             matchGUI.openModeSpecificGUI(player, mode);
         } else {
             // 获取服务器状态
-            ServerManager.ServerStatus status = plugin.getServerManager().getServerStatus(serverName);
+            String mode = extractModeFromServerStatusTitle(inventoryTitle); // 获取当前模式
+            ServerManager.ServerStatus status = plugin.getServerManager().getServerStatus(mode, serverName);
             
             switch (status) {
                 case DEVELOPING:

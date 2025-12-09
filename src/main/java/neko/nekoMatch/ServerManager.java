@@ -15,6 +15,7 @@ import com.google.gson.JsonParser;
 
 public class ServerManager {
     private final JavaPlugin plugin;
+    private RedisManager redisManager;
     
     // 服务器状态枚举
     public enum ServerStatus {
@@ -24,8 +25,9 @@ public class ServerManager {
         OFFLINE      // 离线
     }
     
-    public ServerManager(JavaPlugin plugin) {
+    public ServerManager(JavaPlugin plugin, RedisManager redisManager) {
         this.plugin = plugin;
+        this.redisManager = redisManager;
     }
     
     /**
@@ -87,9 +89,9 @@ public class ServerManager {
         // 遍历所有服务器，找到等待中且玩家数量最多的服务器
         for (String serverName : serverList) {
             plugin.getLogger().info("正在检查服务器 " + serverName + " 是否在等待中");
-            if (isServerWaiting(serverName)) {
+            if (isServerWaiting(mode, serverName)) {
                 plugin.getLogger().info("服务器 " + serverName + " 处于等待中状态，正在获取玩家数量");
-                int playerCount = getServerPlayerCount(serverName);
+                int playerCount = getServerPlayerCount(mode, serverName);
                 plugin.getLogger().info("服务器 " + serverName + " 当前玩家数量: " + playerCount);
                 
                 // 如果当前服务器的玩家数量比之前找到的最佳服务器多，则更新最佳服务器
@@ -113,15 +115,24 @@ public class ServerManager {
     /**
      * 检查服务器是否处于等待状态（MOTD包含"等待中"关键词）
      */
-    public boolean isServerWaiting(String serverName) {
-        ServerStatus status = getServerStatus(serverName);
+    public boolean isServerWaiting(String mode, String serverName) {
+        ServerStatus status = getServerStatus(mode, serverName);
         return status == ServerStatus.WAITING;
     }
     
     /**
      * 获取服务器状态
      */
-    public ServerStatus getServerStatus(String serverName) {
+    public ServerStatus getServerStatus(String mode, String serverName) {
+        // 检查Redis中是否有缓存
+        if (redisManager != null) {
+            String cachedStatus = redisManager.getServerStatusFromCache(mode, serverName);
+            if (cachedStatus != null) {
+                plugin.getLogger().info("从Redis缓存获取服务器 " + serverName + " 状态: " + cachedStatus);
+                return ServerStatus.valueOf(cachedStatus);
+            }
+        }
+
         // 从配置中获取服务器地址和端口信息
         String serverAddress = getServerAddress(serverName);
         
@@ -151,11 +162,21 @@ public class ServerManager {
         // 首先尝试简单的TCP连接检查
         if (!isServerReachable(host, port)) {
             plugin.getLogger().warning("服务器 " + serverName + " (" + host + ":" + port + ") 不可达");
+            // 即使服务器不可达，也缓存这个状态
+            if (redisManager != null) {
+                redisManager.saveServerStatusToCache(mode, serverName, ServerStatus.OFFLINE.toString(), 0);
+            }
             return ServerStatus.OFFLINE;
         }
         
         // 如果TCP连接成功，再尝试获取MOTD信息
-        return getServerMOTDStatus(serverName, host, port);
+        ServerStatus status = getServerMOTDStatus(serverName, host, port);
+        // 将状态结果缓存到Redis
+        if (redisManager != null) {
+            int playerCount = getServerPlayerCount(mode, serverName); // 获取玩家数量
+            redisManager.saveServerStatusToCache(mode, serverName, status.toString(), playerCount);
+        }
+        return status;
     }
     
     /**
@@ -346,8 +367,8 @@ public class ServerManager {
     /**
      * 检查服务器是否可用（用于手动连接）
      */
-    public boolean isServerAvailable(String serverName) {
-        ServerStatus status = getServerStatus(serverName);
+    public boolean isServerAvailable(String mode, String serverName) {
+        ServerStatus status = getServerStatus(mode, serverName);
         // 服务器可用的条件：不是离线状态且不是开发中状态
         // 即使服务器在游戏中，也可以显示在服务器列表中（但不允许手动加入）
         return status != ServerStatus.OFFLINE && status != ServerStatus.DEVELOPING;
@@ -425,7 +446,7 @@ public class ServerManager {
 
      */
 
-    public int getServerPlayerCount(String serverName) {
+    public int getServerPlayerCount(String mode, String serverName) {
 
         // 从配置中获取服务器地址和端口信息
 

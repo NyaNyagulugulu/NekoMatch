@@ -8,12 +8,14 @@ import org.bukkit.entity.Player;
 public final class NekoMatch extends JavaPlugin {
 
     private ServerManager serverManager;
+    private RedisManager redisManager;
 
     @Override
     public void onEnable() {
         // Plugin startup logic
         saveDefaultConfig();
-        serverManager = new ServerManager(this);
+        redisManager = new RedisManager(this);
+        serverManager = new ServerManager(this, redisManager);
         
         // 注册BungeeCord插件消息通道
         getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
@@ -31,6 +33,9 @@ public final class NekoMatch extends JavaPlugin {
     @Override
     public void onDisable() {
         // Plugin shutdown logic
+        if (redisManager != null) {
+            redisManager.close();
+        }
         getLogger().info("NekoMatch 插件已禁用");
     }
 

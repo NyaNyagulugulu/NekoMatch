@@ -1,6 +1,13 @@
 # NekoMatch 配置文件
 # 使用 Velocity (VC) 作为代理
 
+# Redis配置
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  database: 0
+
 # 服务器地址配置
 # 格式: 服务器名: "IP地址:端口"
 servers:
